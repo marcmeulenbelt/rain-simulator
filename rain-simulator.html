@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Enhanced Realistic Rain Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin:0; padding:0; background:#000; overflow:hidden; font-family:sans-serif; color:#fff; }
+        canvas { display:block; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1;
+            background: rgba(0,0,0,0.25);
+            padding: 16px 20px;
+            border-radius: 12px;
+            width: 300px;
+            box-sizing: border-box;
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        #ui.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-12px);
+        }
+        #toggle-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 2;
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 18px;
+            line-height: 1;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: background 0.2s ease;
+        }
+        #toggle-ui:hover {
+            background: rgba(255,255,255,0.15);
+        }
+        #toggle-ui span {
+            display: block;
+            line-height: 1;
+            margin-top: 1px; /* Nudge for emoji optical centering */
+        }
+        #ui .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        #ui .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 13px;
+            opacity: 0.6;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        #ui .panel-title .gear {
+            font-size: 20px;
+            line-height: 1;
+            display: block;
+            margin-top: 1px;
+        }
+        #ui .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            opacity: 0.6;
+            padding: 0;
+        }
+        #ui .slider-group { margin: 16px 0; }
+        #ui label {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        #ui .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin: 12px 0;
+            gap: 8px;
+        }
+        #ui .checkbox-group label {
+            display: inline;
+            margin: 0;
+        }
+        #ui input[type="checkbox"] {
+            margin: 0;
+            flex-shrink: 0;
+        }
+        #ui input[type="range"] {
+            width: 100%;
+            margin-top: 4px;
+        }
+        #fps {
+            position: absolute;
+            bottom: 12px;
+            left: 16px;
+            font-size: 14px;
+            color: #aaa;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 8px;
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 1;
+            backdrop-filter: blur(4px);
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="toggle-ui"><span>âš™</span></button>
+    <div id="ui" class="hidden">
+        <div class="panel-header">
+            <div class="panel-title">
+                <span class="gear">âš™</span>Controls
+            </div>
+            <button id="hide-ui" class="close-btn">âœ•</button>
+        </div>
+        <div class="slider-group">
+            <label>Intensity: <span id="intensityVal">5</span> mm/hr</label>
+            <input type="range" id="intensity" min="0" max="100" value="5" step="1">
+        </div>
+        <div class="slider-group">
+            <label>Lightning Frequency: <span id="lightningFreqVal">Medium</span></label>
+            <input type="range" id="lightningFreq" min="0" max="80" value="40" step="1">
+        </div>
+        <div class="checkbox-group">
+            <input type="checkbox" id="lightningToggle" checked>
+            <label for="lightningToggle">Enable Lightning</label>
+        </div>
+        <div class="checkbox-group">
+            <input type="checkbox" id="fpsToggle">
+            <label for="fpsToggle">Show FPS Counter</label>
+        </div>
+    </div>
+    <div id="fps">FPS: --</div>
+
+    <script>
+        let scene, camera, renderer, cloudParticles = [], flash, rain, rainGeo, rainMaterial;
+        let mist, mistGeo, mistMaterial;
+        let lastFlashTime = 0;
+        let nextFlashTime = 0;
+        let lightningEnabled = true;
+        let lightningFrequency = 40; // 0-80 scale
+        let currentIntensity = 5;
+
+        let prevTime = performance.now();
+        let frames = 0;
+        let lastFrameTime = performance.now();
+        const fpsElement = document.getElementById('fps');
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
+            camera.position.z = 1;
+            camera.rotation.x = 0.8;
+            camera.rotation.y = -0.12;
+            camera.rotation.z = 0.27;
+
+            // Enhanced lighting with subtle variation
+            const ambient = new THREE.AmbientLight(0x3a4a66, 0.7);
+            scene.add(ambient);
+
+            const dirLight = new THREE.DirectionalLight(0xffeedd, 0.4);
+            dirLight.position.set(100, 200, 50);
+            scene.add(dirLight);
+
+            flash = new THREE.PointLight(0x88aaff, 0, 800, 2);
+            flash.position.set(300, 400, 200);
+            scene.add(flash);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            scene.fog = new THREE.FogExp2(0x0a0f1f, 0.002);
+            renderer.setClearColor(scene.fog.color);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Clouds with depth layers for parallax
+            const cloudTex = new THREE.CanvasTexture(generateCloudTexture());
+            const cloudGeo = new THREE.PlaneGeometry(800, 800);
+            const cloudMat = new THREE.MeshLambertMaterial({ map: cloudTex, transparent: true, opacity: 0.55 });
+            for (let i = 0; i < 30; i++) {
+                const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                const zPos = Math.random() * 600 - 400;
+                cloud.position.set(Math.random() * 1000 - 500, 600 + Math.random() * 200, zPos);
+                cloud.rotation.x = 1.16;
+                cloud.rotation.y = -0.12 + (Math.random() - 0.5) * 0.1;
+                cloud.rotation.z = Math.random() * Math.PI * 2;
+                // Store depth for parallax (normalized 0-1)
+                cloud.userData.depth = (zPos + 400) / 1000;
+                cloudParticles.push(cloud);
+                scene.add(cloud);
+            }
+
+            // Ground mist/atmosphere
+            createMist();
+
+            updateRain();
+
+            document.getElementById('hide-ui').addEventListener('click', () => {
+                document.getElementById('ui').classList.add('hidden');
+                document.getElementById('toggle-ui').style.display = 'flex';
+            });
+
+            document.getElementById('toggle-ui').addEventListener('click', () => {
+                document.getElementById('ui').classList.remove('hidden');
+                document.getElementById('toggle-ui').style.display = 'none';
+            });
+
+            document.getElementById('intensity').addEventListener('input', e => {
+                currentIntensity = parseInt(e.target.value);
+                document.getElementById('intensityVal').textContent = currentIntensity;
+                updateRain();
+                updateMist();
+            });
+
+            document.getElementById('lightningFreq').addEventListener('input', e => {
+                lightningFrequency = parseInt(e.target.value);
+                const label = lightningFrequency < 16 ? 'Rare' :
+                             lightningFrequency < 32 ? 'Occasional' :
+                             lightningFrequency < 48 ? 'Medium' :
+                             lightningFrequency < 64 ? 'Frequent' : 'Very Frequent';
+                document.getElementById('lightningFreqVal').textContent = label;
+
+                // Immediately adjust next flash time based on new frequency
+                const currentTime = performance.now() * 0.001;
+                const timeSinceLastFlash = currentTime - lastFlashTime;
+
+                // Simple linear calculation: 0 = 20 sec, 80 = 1 sec average
+                const avgInterval = 20 - (lightningFrequency / 80) * 19; // 20 to 1 seconds
+                const minInterval = avgInterval * 0.7;
+                const maxInterval = avgInterval * 1.3;
+
+                // If we've already waited longer than max interval, trigger soon
+                if (timeSinceLastFlash > maxInterval) {
+                    nextFlashTime = currentTime + 0.1; // Almost immediate
+                } else {
+                    // Otherwise, reschedule based on new frequency
+                    const newInterval = minInterval + Math.random() * (maxInterval - minInterval);
+                    nextFlashTime = currentTime + Math.min(newInterval, maxInterval - timeSinceLastFlash);
+                }
+            });
+
+            document.getElementById('lightningToggle').addEventListener('change', e => {
+                lightningEnabled = e.target.checked;
+                if (!lightningEnabled) flash.intensity = 0;
+            });
+
+            document.getElementById('fpsToggle').addEventListener('change', e => {
+                fpsElement.style.display = e.target.checked ? 'block' : 'none';
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Initialize first lightning time
+            nextFlashTime = performance.now() * 0.001 + Math.random() * 5;
+
+            animate();
+        }
+
+        function generateCloudTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            for (let i = 0; i < 15; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random()*512, Math.random()*512, 40 + Math.random()*120, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.filter = 'blur(30px)';
+            ctx.fillRect(0,0,512,512);
+            return canvas;
+        }
+
+        function createMist() {
+            const mistCount = 2000;
+            mistGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(mistCount * 3);
+            const sizes = new Float32Array(mistCount);
+            const depths = new Float32Array(mistCount);
+
+            for (let i = 0; i < mistCount; i++) {
+                const idx = i * 3;
+                const zPos = Math.random() * 1600 - 800;
+                positions[idx] = Math.random() * 1600 - 800;
+                positions[idx + 1] = Math.random() * 400 - 200;
+                positions[idx + 2] = zPos;
+                sizes[i] = 8 + Math.random() * 15;
+                depths[i] = (zPos + 800) / 1600; // Normalize depth 0-1
+            }
+
+            mistGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            mistGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            mistGeo.userData = { depths };
+
+            // Create a soft circular texture for mist particles
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.3)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+            const mistTexture = new THREE.CanvasTexture(canvas);
+
+            mistMaterial = new THREE.PointsMaterial({
+                color: 0x556677,
+                size: 12,
+                map: mistTexture,
+                transparent: true,
+                opacity: 0.08,
+                blending: THREE.NormalBlending,
+                sizeAttenuation: true,
+                depthWrite: false
+            });
+
+            mist = new THREE.Points(mistGeo, mistMaterial);
+            scene.add(mist);
+        }
+
+        function updateMist() {
+            if (!mist) return;
+            const t = currentIntensity / 100;
+            mistMaterial.opacity = 0.05 + t * 0.15;
+        }
+
+        function updateRain() {
+            if (currentIntensity === 0) {
+                if (rain) {
+                    scene.remove(rain);
+                    rain = null;
+                }
+                return;
+            }
+
+            if (rain) scene.remove(rain);
+
+            const t = currentIntensity / 100;
+            const density = Math.pow(t, 2.0) * 2.2 + 0.15;
+            const speedMult = 0.8 + t * 3.5;
+
+            const particleCount = Math.round(3000 + 32000 * density);
+
+            rainGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount);
+
+            for (let i = 0; i < particleCount; i++) {
+                const idx = i * 3;
+                positions[idx] = Math.random() * 800 - 400;
+                // Spread particles from way above the view down to below to avoid initial pulse
+                positions[idx + 1] = Math.random() * 1400 - 400; // From 1000 down to -400
+                positions[idx + 2] = Math.random() * 800 - 400;
+                const baseVel = -(4.5 + Math.random() * 3.5);
+                velocities[i] = baseVel * (0.85 + Math.random() * 0.3) * speedMult;
+            }
+
+            // Create rain streaks using LineSegments instead of Points
+            const streakPositions = new Float32Array(particleCount * 6); // 2 points per streak
+            for (let i = 0; i < particleCount; i++) {
+                const idx = i * 6;
+                const posIdx = i * 3;
+                // Start of streak
+                streakPositions[idx] = positions[posIdx];
+                streakPositions[idx + 1] = positions[posIdx + 1];
+                streakPositions[idx + 2] = positions[posIdx + 2];
+                // End of streak (slightly offset downward for trail)
+                const streakLength = 8 + t * 15; // longer streaks at higher intensity
+                streakPositions[idx + 3] = positions[posIdx];
+                streakPositions[idx + 4] = positions[posIdx + 1] - streakLength;
+                streakPositions[idx + 5] = positions[posIdx + 2];
+            }
+
+            rainGeo.setAttribute('position', new THREE.BufferAttribute(streakPositions, 3));
+
+            // Add depth information for parallax effect
+            const depths = new Float32Array(particleCount);
+            for (let i = 0; i < particleCount; i++) {
+                const posIdx = i * 3;
+                const zPos = positions[posIdx + 2];
+                // Normalize depth: 0 = far (z=-400), 1 = close (z=400)
+                depths[i] = (zPos + 400) / 800;
+            }
+            rainGeo.userData = { velocities, depths };
+
+            rainMaterial = new THREE.LineBasicMaterial({
+                color: 0xaaccff,
+                transparent: true,
+                opacity: 0.5 + t * 0.4,
+                blending: THREE.AdditiveBlending,
+                linewidth: 1
+            });
+
+            rain = new THREE.LineSegments(rainGeo, rainMaterial);
+            scene.add(rain);
+        }
+
+        function animate() {
+            const now = performance.now();
+            const deltaTime = (now - lastFrameTime) / 1000; // Convert to seconds
+            lastFrameTime = now;
+
+            const time = now * 0.001;
+            frames++;
+
+            // Reliable FPS: count frames over a fixed 1-second window
+            if (now - prevTime >= 1000) {
+                fpsElement.textContent = `FPS: ${frames}`;
+                frames = 0;
+                prevTime = now;
+            }
+
+            // Animate clouds - frame-independent with parallax
+            cloudParticles.forEach(p => {
+                const depth = p.userData.depth;
+                const parallaxFactor = 0.4 + depth * 0.6; // Farther clouds move slower
+                p.rotation.z -= 0.0003 * (deltaTime * 60) * parallaxFactor;
+                p.position.x += Math.sin(time * 0.1 + p.position.z) * 0.05 * (deltaTime * 60) * parallaxFactor;
+            });
+
+            // Animate mist - frame-independent with parallax
+            if (mist) {
+                const mistPositions = mistGeo.attributes.position.array;
+                const depths = mistGeo.userData.depths;
+                for (let i = 0; i < mistPositions.length / 3; i++) {
+                    const idx = i * 3;
+                    const depth = depths[i];
+                    const parallaxFactor = 0.5 + depth * 0.5; // Farther mist drifts slower
+                    mistPositions[idx] += Math.sin(time * 0.2 + i) * 0.1 * (deltaTime * 60) * parallaxFactor;
+                    mistPositions[idx + 2] += Math.cos(time * 0.15 + i) * 0.08 * (deltaTime * 60) * parallaxFactor;
+                }
+                mistGeo.attributes.position.needsUpdate = true;
+                mist.rotation.y = time * 0.02;
+            }
+
+            // Animate rain streaks - frame-independent with parallax
+            if (rain && currentIntensity > 0) {
+                const positions = rainGeo.attributes.position.array;
+                const velocities = rainGeo.userData.velocities;
+                const depths = rainGeo.userData.depths || [];
+                const t = currentIntensity / 100;
+                const streakLength = 8 + t * 15;
+
+                for (let i = 0; i < velocities.length; i++) {
+                    const idx = i * 6; // 6 values per streak (2 points Ã— 3 coords)
+                    const depth = depths[i] || 0.5; // Default to middle depth if not available
+
+                    // Apply gravity with delta time
+                    velocities[i] -= (0.05 + Math.random() * 0.008) * (deltaTime * 60);
+
+                    // Parallax: closer drops fall faster and move more
+                    const parallaxFactor = 0.3 + depth * 0.7; // 0.3x to 1.0x speed based on depth
+
+                    // Update both points of the streak with delta time and parallax
+                    positions[idx + 1] += velocities[i] * (deltaTime * 60) * parallaxFactor; // start Y
+                    positions[idx + 4] = positions[idx + 1] - streakLength; // end Y
+
+                    // Add slight horizontal drift based on depth (wind effect)
+                    const windDrift = Math.sin(time * 0.3 + i * 0.1) * 0.15 * (deltaTime * 60) * depth;
+                    positions[idx] += windDrift; // start X
+                    positions[idx + 3] += windDrift; // end X
+
+                    // Reset raindrop when it goes below view
+                    if (positions[idx + 1] < -400) {
+                        positions[idx + 1] = 600 + Math.random() * 400;
+                        positions[idx + 4] = positions[idx + 1] - streakLength;
+                        velocities[i] = -(4.5 + Math.random() * 4) * (0.8 + currentIntensity / 100 * 3.5);
+                        positions[idx] = Math.random() * 800 - 400;
+                        positions[idx + 2] = Math.random() * 800 - 400;
+                        positions[idx + 3] = positions[idx];
+                        positions[idx + 5] = positions[idx + 2];
+
+                        // Recalculate depth for reset drop
+                        const zPos = positions[idx + 2];
+                        depths[i] = (zPos + 400) / 800;
+                    }
+                }
+
+                rainGeo.attributes.position.needsUpdate = true;
+            }
+
+            // Lightning - frequency controlled with moderate randomness
+            if (lightningEnabled) {
+                // Check if it's time for next flash
+                if (time >= nextFlashTime) {
+                    // Simple linear calculation: 0 = 20 sec, 80 = 1 sec average
+                    const avgInterval = 20 - (lightningFrequency / 80) * 19; // 20 to 1 seconds
+                    const minInterval = avgInterval * 0.7;
+                    const maxInterval = avgInterval * 1.3;
+
+                    // Random interval within range
+                    const interval = minInterval + Math.random() * (maxInterval - minInterval);
+
+                    // Occasional brief storm bursts - 10% chance
+                    const isStormBurst = Math.random() < 0.1 && lightningFrequency > 30;
+                    const burstInterval = isStormBurst ? interval * 0.3 : interval;
+
+                    nextFlashTime = time + burstInterval;
+
+                    // Trigger flash with moderate intensity variation
+                    flash.position.set(
+                        Math.random() * 800 - 400,
+                        400 + Math.random() * 300,
+                        Math.random() * 600 - 300
+                    );
+
+                    // More moderate intensity variation
+                    const intensityVariation = 0.7 + Math.random() * 0.6; // 0.7x to 1.3x (was 0.5x to 2x)
+                    flash.intensity = (800 + Math.random() * 1000) * intensityVariation;
+
+                    lastFlashTime = time;
+                }
+
+                // Decay flash with realistic flicker
+                if (flash.intensity > 0) {
+                    // Multi-stage flicker for realism
+                    const normalizedIntensity = flash.intensity / 2000; // 0 to 1 range
+
+                    // Early stage (bright): more frequent, stronger flickers
+                    if (normalizedIntensity > 0.3) {
+                        if (Math.random() < 0.12) { // 12% chance per frame
+                            flash.intensity *= 1.3 + Math.random() * 0.4; // 1.3x to 1.7x spike
+                        }
+                    }
+                    // Mid stage: occasional moderate flickers
+                    else if (normalizedIntensity > 0.1) {
+                        if (Math.random() < 0.06) { // 6% chance
+                            flash.intensity *= 1.15 + Math.random() * 0.2; // 1.15x to 1.35x
+                        }
+                    }
+                    // Late stage: rare subtle flickers
+                    else {
+                        if (Math.random() < 0.03) { // 3% chance
+                            flash.intensity *= 1.1 + Math.random() * 0.1; // 1.1x to 1.2x
+                        }
+                    }
+
+                    // Main decay
+                    flash.intensity *= Math.pow(0.86, deltaTime * 60);
+                    if (flash.intensity < 1) flash.intensity = 0;
+                }
+            } else {
+                flash.intensity = 0;
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        init();
+    </script>
+</body>
+</html>
