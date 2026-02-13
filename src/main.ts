@@ -26,6 +26,7 @@ class RainSimulatorApp {
   };
   private showFps: boolean = false;
   private cursorHideTimeout: number | null = null;
+  private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor() {
     this.init();
@@ -116,7 +117,7 @@ class RainSimulatorApp {
       document.body.classList.add('hide-cursor');
     };
 
-    const showCursor = () => {
+    this.mouseMoveHandler = () => {
       document.body.classList.remove('hide-cursor');
       
       // Clear existing timeout
@@ -129,7 +130,7 @@ class RainSimulatorApp {
     };
 
     // Show cursor on mouse movement
-    document.addEventListener('mousemove', showCursor);
+    document.addEventListener('mousemove', this.mouseMoveHandler);
     
     // Initial timeout
     this.cursorHideTimeout = window.setTimeout(hideCursor, 3000);
@@ -141,6 +142,10 @@ class RainSimulatorApp {
   dispose(): void {
     if (this.cursorHideTimeout !== null) {
       clearTimeout(this.cursorHideTimeout);
+    }
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
+      this.mouseMoveHandler = null;
     }
     this.controlPanel?.dispose();
     this.sceneManager?.dispose();

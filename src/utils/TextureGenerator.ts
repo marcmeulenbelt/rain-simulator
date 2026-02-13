@@ -7,7 +7,11 @@ export function generateCloudTexture(size: number = 512): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('Failed to get 2D canvas context for cloud texture generation');
+  }
 
   ctx.fillStyle = 'white';
 
@@ -38,7 +42,11 @@ export function generateMistTexture(size: number = 64): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('Failed to get 2D canvas context for mist texture generation');
+  }
 
   const halfSize = size / 2;
   const gradient = ctx.createRadialGradient(
@@ -63,7 +71,11 @@ export function generateRainTexture(size: number = 32): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size * 4;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) {
+    throw new Error('Failed to get 2D canvas context for rain texture generation');
+  }
 
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   gradient.addColorStop(0, 'rgba(170,204,255,0)');

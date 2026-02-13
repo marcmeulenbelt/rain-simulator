@@ -78,15 +78,6 @@ export interface FpsState {
 }
 
 /**
- * Cloud particle with depth metadata
- */
-export interface CloudMesh extends THREE.Mesh {
-  userData: {
-    depth: number;
-  };
-}
-
-/**
  * Rain geometry with velocity/depth data
  */
 export interface RainGeometry extends THREE.BufferGeometry {

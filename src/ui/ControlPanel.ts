@@ -12,6 +12,7 @@ export class ControlPanel {
   private panelElement: HTMLElement | null = null;
   private toggleButton: HTMLElement | null = null;
   private fpsElement: HTMLElement | null = null;
+  private documentClickHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor(options: ControlPanelOptions) {
     this.container = options.container;
@@ -107,7 +108,7 @@ export class ControlPanel {
     });
 
     // Close panel when clicking outside
-    document.addEventListener('click', (e) => {
+    this.documentClickHandler = (e: MouseEvent) => {
       if (!this.panelElement?.classList.contains('hidden') &&
           !this.panelElement?.contains(e.target as Node) &&
           !this.toggleButton?.contains(e.target as Node)) {
@@ -119,7 +120,8 @@ export class ControlPanel {
           }, 100);
         }
       }
-    });
+    };
+    document.addEventListener('click', this.documentClickHandler);
 
     // Intensity slider
     const intensitySlider = this.panelElement.querySelector('#intensity') as HTMLInputElement;
@@ -206,6 +208,10 @@ export class ControlPanel {
    * Clean up event listeners
    */
   dispose(): void {
+    if (this.documentClickHandler) {
+      document.removeEventListener('click', this.documentClickHandler);
+      this.documentClickHandler = null;
+    }
     this.toggleButton?.remove();
     this.panelElement?.remove();
     this.fpsElement?.remove();

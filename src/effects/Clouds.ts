@@ -4,15 +4,15 @@ import { CLOUDS } from '../config/defaults';
 import { generateCloudTexture } from '../utils/TextureGenerator';
 
 /** Cloud mesh with depth metadata */
-interface CloudMesh extends THREE.Mesh {
-  userData: { depth: number };
+interface CloudMeshData {
+  depth: number;
 }
 
 /**
  * Animated cloud layer effect
  */
 export class Clouds implements SceneEffect {
-  private clouds: CloudMesh[] = [];
+  private clouds: THREE.Mesh[] = [];
   private cloudTexture: THREE.CanvasTexture;
   private cloudMaterial: THREE.MeshLambertMaterial;
   private cloudGeometry: THREE.PlaneGeometry;
@@ -35,7 +35,7 @@ export class Clouds implements SceneEffect {
 
   private createClouds(): void {
     for (let i = 0; i < CLOUDS.COUNT; i++) {
-      const cloud = new THREE.Mesh(this.cloudGeometry, this.cloudMaterial) as unknown as CloudMesh;
+      const cloud = new THREE.Mesh(this.cloudGeometry, this.cloudMaterial);
 
       const zPos = Math.random() * (CLOUDS.Z_RANGE.max - CLOUDS.Z_RANGE.min) + CLOUDS.Z_RANGE.min;
 
@@ -50,9 +50,10 @@ export class Clouds implements SceneEffect {
       cloud.rotation.z = Math.random() * Math.PI * 2;
 
       // Store depth for parallax (normalized 0-1)
-      cloud.userData = {
+      const userData: CloudMeshData = {
         depth: (zPos - CLOUDS.Z_RANGE.min) / (CLOUDS.Z_RANGE.max - CLOUDS.Z_RANGE.min),
       };
+      cloud.userData = userData;
 
       this.clouds.push(cloud);
     }
@@ -62,7 +63,7 @@ export class Clouds implements SceneEffect {
     const deltaFactor = deltaTime * 60; // Normalize to 60fps
 
     for (const cloud of this.clouds) {
-      const depth = cloud.userData.depth;
+      const depth = (cloud.userData as CloudMeshData).depth;
       const parallaxFactor = 0.4 + depth * 0.6;
 
       // Rotate slowly
