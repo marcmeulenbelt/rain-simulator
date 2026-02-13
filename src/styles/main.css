@@ -12,6 +12,16 @@ body {
   color: #fff;
 }
 
+body.hide-cursor {
+  cursor: none;
+}
+
+body.hide-cursor button,
+body.hide-cursor input,
+body.hide-cursor label {
+  cursor: none;
+}
+
 canvas {
   display: block;
 }

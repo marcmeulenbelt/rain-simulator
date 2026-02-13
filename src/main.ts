@@ -25,6 +25,7 @@ class RainSimulatorApp {
     lastFrameTime: performance.now(),
   };
   private showFps: boolean = false;
+  private cursorHideTimeout: number | null = null;
 
   constructor() {
     this.init();
@@ -72,6 +73,9 @@ class RainSimulatorApp {
     // Setup FPS tracking
     this.sceneManager.onAnimate(this.updateFps.bind(this));
 
+    // Setup cursor auto-hiding
+    this.setupCursorHiding();
+
     // Start animation loop
     this.sceneManager.start();
   }
@@ -107,10 +111,37 @@ class RainSimulatorApp {
     }
   }
 
+  private setupCursorHiding(): void {
+    const hideCursor = () => {
+      document.body.classList.add('hide-cursor');
+    };
+
+    const showCursor = () => {
+      document.body.classList.remove('hide-cursor');
+      
+      // Clear existing timeout
+      if (this.cursorHideTimeout !== null) {
+        clearTimeout(this.cursorHideTimeout);
+      }
+      
+      // Set new timeout to hide cursor after 3 seconds
+      this.cursorHideTimeout = window.setTimeout(hideCursor, 3000);
+    };
+
+    // Show cursor on mouse movement
+    document.addEventListener('mousemove', showCursor);
+    
+    // Initial timeout
+    this.cursorHideTimeout = window.setTimeout(hideCursor, 3000);
+  }
+
   /**
    * Clean up all resources
    */
   dispose(): void {
+    if (this.cursorHideTimeout !== null) {
+      clearTimeout(this.cursorHideTimeout);
+    }
     this.controlPanel?.dispose();
     this.sceneManager?.dispose();
   }

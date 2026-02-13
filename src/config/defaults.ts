@@ -4,8 +4,8 @@ import { WeatherConfig, WeatherPreset, LightningFrequencyLabel } from '../types'
  * Default weather configuration
  */
 export const DEFAULT_CONFIG: WeatherConfig = {
-  intensity: 8,
-  lightningFrequency: 40,
+  intensity: 25,
+  lightningFrequency: 0,
 };
 
 /**
@@ -133,25 +133,31 @@ export const MIST = {
  */
 export const LIGHTNING = {
   /** Minimum interval at max frequency (seconds) */
-  MIN_INTERVAL: 1,
+  MIN_INTERVAL: 0.8,
   /** Maximum interval at min frequency (seconds) */
   MAX_INTERVAL: 20,
   /** Interval variation factor */
-  INTERVAL_VARIATION: 0.3,
+  INTERVAL_VARIATION: 0.4,
   /** Flash position bounds */
-  POSITION_BOUNDS: { x: 800, y: { base: 400, range: 300 }, z: 600 },
-  /** Base flash intensity */
-  BASE_INTENSITY: 800,
-  /** Intensity variation range */
-  INTENSITY_RANGE: 1000,
-  /** Intensity multiplier range */
-  INTENSITY_MULT: { min: 0.7, max: 1.3 },
-  /** Decay rate per frame */
-  DECAY_RATE: 0.86,
-  /** Storm burst probability */
-  STORM_BURST_CHANCE: 0.1,
+  POSITION_BOUNDS: { x: 1000, y: { base: 560, range: 90 }, z: { min: -400, max: 100 } },
+  /** Main bolt cloud-to-ground height range */
+  BOLT_Y: { cloud: { min: 560, max: 650 }, ground: { min: -350, max: -250 } },
+  /** Bolt lateral jitter range */
+  BOLT_JITTER: { base: 15, scale: 35 },
+  /** Number of main-channel steps */
+  BOLT_STEPS: { min: 12, max: 22 },
+  /** Number of branches per bolt */
+  BRANCH_COUNT: { min: 3, max: 8 },
+  /** Flash light max intensity */
+  FLASH_MAX_INTENSITY: 15000,
+  /** Cloud light max intensity */
+  CLOUD_MAX_INTENSITY: 6000,
+  /** Storm burst probability (at high frequency) */
+  STORM_BURST_CHANCE: 0.15,
   /** Minimum frequency for storm bursts */
-  STORM_BURST_MIN_FREQ: 30,
+  STORM_BURST_MIN_FREQ: 35,
+  /** Screen-shake intensity factor */
+  SHAKE_FACTOR: 3.5,
 } as const;
 
 /**

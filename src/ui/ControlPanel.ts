@@ -106,6 +106,21 @@ export class ControlPanel {
       }
     });
 
+    // Close panel when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!this.panelElement?.classList.contains('hidden') &&
+          !this.panelElement?.contains(e.target as Node) &&
+          !this.toggleButton?.contains(e.target as Node)) {
+        this.panelElement?.classList.add('hidden');
+        if (this.toggleButton) {
+          setTimeout(() => {
+            this.toggleButton!.style.opacity = '0.6';
+            this.toggleButton!.style.pointerEvents = 'auto';
+          }, 100);
+        }
+      }
+    });
+
     // Intensity slider
     const intensitySlider = this.panelElement.querySelector('#intensity') as HTMLInputElement;
     const intensityVal = this.panelElement.querySelector('#intensityVal');
