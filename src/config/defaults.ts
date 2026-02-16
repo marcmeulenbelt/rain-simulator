@@ -6,6 +6,7 @@ import { WeatherConfig, WeatherPreset, LightningFrequencyLabel } from '../types'
 export const DEFAULT_CONFIG: WeatherConfig = {
   intensity: 25,
   lightningFrequency: 0,
+  windSpeed: 0,
 };
 
 /**
@@ -15,22 +16,22 @@ export const PRESETS: WeatherPreset[] = [
   {
     name: 'Light Drizzle',
     description: 'Gentle, peaceful rain',
-    config: { intensity: 8, lightningFrequency: 0 },
+    config: { intensity: 8, lightningFrequency: 0, windSpeed: 10 },
   },
   {
     name: 'Steady Rain',
     description: 'Moderate rainfall',
-    config: { intensity: 25, lightningFrequency: 0 },
+    config: { intensity: 25, lightningFrequency: 0, windSpeed: 0 },
   },
   {
     name: 'Thunderstorm',
     description: 'Heavy rain with frequent lightning',
-    config: { intensity: 60, lightningFrequency: 55 },
+    config: { intensity: 60, lightningFrequency: 55, windSpeed: 40 },
   },
   {
     name: 'Monsoon',
     description: 'Torrential downpour',
-    config: { intensity: 90, lightningFrequency: 70 },
+    config: { intensity: 90, lightningFrequency: 70, windSpeed: 50 },
   },
 ];
 

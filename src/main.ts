@@ -92,6 +92,9 @@ class RainSimulatorApp {
         this.lightning?.setFrequency(frequency);
         this.lightning?.setEnabled(frequency > 0);
         break;
+      case 'windSpeed':
+        this.rain?.setWindSpeed(event.value as number);
+        break;
     }
   }
 

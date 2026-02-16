@@ -2,6 +2,17 @@ import { WeatherConfig, ConfigChangeEvent, ControlPanelOptions } from '../types'
 import { getLightningFrequencyLabel, PRESETS } from '../config/defaults';
 
 /**
+ * Format wind speed value for display with km/h unit and direction arrow
+ */
+function formatWindSpeed(windSpeed: number): string {
+  if (windSpeed === 0) return 'Calm';
+  const arrow = windSpeed < 0 ? '← ' : ' →';
+  const value = Math.abs(windSpeed);
+  const label = windSpeed < 0 ? `${arrow}${value} km/h` : `${value} km/h${arrow}`;
+  return label;
+}
+
+/**
  * UI Control Panel for adjusting weather settings
  */
 export class ControlPanel {
@@ -49,6 +60,11 @@ export class ControlPanel {
       <div class="slider-group">
         <label>Intensity: <span id="intensityVal">${this.config.intensity}</span> mm/hr</label>
         <input type="range" id="intensity" min="0" max="100" value="${this.config.intensity}" step="1">
+      </div>
+
+      <div class="slider-group">
+        <label>Wind Speed: <span id="windSpeedVal">${formatWindSpeed(this.config.windSpeed)}</span></label>
+        <input type="range" id="windSpeed" min="-50" max="50" value="${this.config.windSpeed}" step="5">
       </div>
 
       <div class="slider-group">
@@ -141,6 +157,15 @@ export class ControlPanel {
       this.emitChange('lightningFrequency', value);
     });
 
+    // Wind speed slider
+    const windSlider = this.panelElement.querySelector('#windSpeed') as HTMLInputElement;
+    const windVal = this.panelElement.querySelector('#windSpeedVal');
+    windSlider?.addEventListener('input', () => {
+      const value = parseInt(windSlider.value);
+      if (windVal) windVal.textContent = formatWindSpeed(value);
+      this.emitChange('windSpeed', value);
+    });
+
     // FPS toggle
     const fpsToggle = this.panelElement.querySelector('#fpsToggle') as HTMLInputElement;
     fpsToggle?.addEventListener('change', () => {
@@ -174,15 +199,20 @@ export class ControlPanel {
     const intensityVal = this.panelElement?.querySelector('#intensityVal');
     const freqSlider = this.panelElement?.querySelector('#lightningFreq') as HTMLInputElement;
     const freqVal = this.panelElement?.querySelector('#lightningFreqVal');
+    const windSlider = this.panelElement?.querySelector('#windSpeed') as HTMLInputElement;
+    const windVal = this.panelElement?.querySelector('#windSpeedVal');
 
     if (intensitySlider) intensitySlider.value = config.intensity.toString();
     if (intensityVal) intensityVal.textContent = config.intensity.toString();
     if (freqSlider) freqSlider.value = config.lightningFrequency.toString();
     if (freqVal) freqVal.textContent = getLightningFrequencyLabel(config.lightningFrequency);
+    if (windSlider) windSlider.value = config.windSpeed.toString();
+    if (windVal) windVal.textContent = formatWindSpeed(config.windSpeed);
 
     // Emit changes
     this.emitChange('intensity', config.intensity);
     this.emitChange('lightningFrequency', config.lightningFrequency);
+    this.emitChange('windSpeed', config.windSpeed);
   }
 
   /**

@@ -8,6 +8,8 @@ export interface WeatherConfig {
   intensity: number;
   /** Lightning frequency from 0 (none) to 80 (very frequent) */
   lightningFrequency: number;
+  /** Wind speed from -50 (left) to 50 (right) km/h, 0 is calm */
+  windSpeed: number;
 }
 
 /**

@@ -10,6 +10,7 @@ export class Rain implements SceneEffect {
   private geometry: RainGeometry | null = null;
   private material: THREE.LineBasicMaterial | null = null;
   private intensity: number = 0;
+  private windSpeed: number = 0;
   private container: THREE.Group;
 
   constructor(initialIntensity: number = 5) {
@@ -23,6 +24,13 @@ export class Rain implements SceneEffect {
   setIntensity(intensity: number): void {
     this.intensity = Math.max(0, Math.min(100, intensity));
     this.rebuild();
+  }
+
+  /**
+   * Set wind speed (-100 to 100, negative = left, positive = right)
+   */
+  setWindSpeed(windSpeed: number): void {
+    this.windSpeed = Math.max(-50, Math.min(50, windSpeed));
   }
 
   /**
@@ -138,25 +146,55 @@ export class Rain implements SceneEffect {
       // Parallax: closer drops fall faster
       const parallaxFactor = 0.3 + depth * 0.7;
 
-      // Update positions
-      positions[idx + 1] += velocities[i] * deltaFactor * parallaxFactor;
-      positions[idx + 4] = positions[idx + 1] - streakLength;
+      // Compute per-frame velocity components (before deltaFactor, for direction only)
+      // Multiplier calibrated so 100 km/h wind ≈ 70-75° from vertical (near-horizontal),
+      // matching real rain physics (terminal velocity ~7 m/s vs 28 m/s wind)
+      const vx = this.windSpeed * 0.35 * parallaxFactor;
+      const vy = velocities[i] * parallaxFactor; // negative (falling)
 
-      // Wind drift
-      const windDrift = Math.sin(elapsedTime * 0.3 + i * 0.1) * 0.15 * deltaFactor * depth;
-      positions[idx] += windDrift;
-      positions[idx + 3] += windDrift;
+      // Horizontal wind drift per frame (includes subtle variation)
+      const windVariation = Math.sin(elapsedTime * 0.3 + i * 0.1) * 0.15 * depth;
+      const totalWind = (vx + windVariation) * deltaFactor;
+
+      // Update head position
+      positions[idx] += totalWind;                          // head X
+      positions[idx + 1] += vy * deltaFactor;               // head Y (falling)
+
+      // Orient the streak along the velocity vector so the line
+      // matches the actual direction of travel.
+      // tail = head - normalize(velocity) * streakLength
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      const dirX = speed > 0 ? vx / speed : 0;
+      const dirY = speed > 0 ? vy / speed : -1;
+
+      positions[idx + 3] = positions[idx] - dirX * streakLength;   // tail X
+      positions[idx + 4] = positions[idx + 1] - dirY * streakLength; // tail Y
+      // Z stays the same for both vertices
+
+      // Wrap horizontally: if a drop drifts past the bounds, move it to the opposite side
+      const halfX = RAIN.BOUNDS.x / 2;
+      if (positions[idx] > halfX) {
+        const shift = -RAIN.BOUNDS.x;
+        positions[idx] += shift;
+        positions[idx + 3] += shift;
+      } else if (positions[idx] < -halfX) {
+        const shift = RAIN.BOUNDS.x;
+        positions[idx] += shift;
+        positions[idx + 3] += shift;
+      }
 
       // Reset when below view
       if (positions[idx + 1] < RAIN.RESET_Y) {
-        const newX = Math.random() * RAIN.BOUNDS.x - RAIN.BOUNDS.x / 2;
+        // Spawn upwind so drops drift into view rather than away from it
+        const windOffset = -this.windSpeed * 3;
+        const newX = Math.random() * RAIN.BOUNDS.x - RAIN.BOUNDS.x / 2 + windOffset;
         const newZ = Math.random() * RAIN.BOUNDS.z - RAIN.BOUNDS.z / 2;
 
-        positions[idx + 1] = RAIN.SPAWN_Y.base + Math.random() * RAIN.SPAWN_Y.range;
-        positions[idx + 4] = positions[idx + 1] - streakLength;
         positions[idx] = newX;
+        positions[idx + 1] = RAIN.SPAWN_Y.base + Math.random() * RAIN.SPAWN_Y.range;
         positions[idx + 2] = newZ;
-        positions[idx + 3] = newX;
+        positions[idx + 3] = newX - dirX * streakLength;
+        positions[idx + 4] = positions[idx + 1] - dirY * streakLength;
         positions[idx + 5] = newZ;
 
         velocities[i] = -(RAIN.BASE_SPEED + Math.random() * 4) * speedMult;
