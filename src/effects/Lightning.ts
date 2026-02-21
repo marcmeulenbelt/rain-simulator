@@ -118,6 +118,7 @@ export class Lightning implements SceneEffect {
 
   // ── Public API ──────────────────────────────────────────────────────────
 
+  /** Enable or disable the lightning system. Clears all active strikes when disabled. */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
     if (!enabled) {
@@ -125,10 +126,15 @@ export class Lightning implements SceneEffect {
     }
   }
 
+  /** Returns whether the lightning system is currently active. */
   isEnabled(): boolean {
     return this.enabled;
   }
 
+  /**
+   * Set the strike frequency.
+   * @param frequency - Value in range [0, 80]; 0 = no lightning, 80 = very frequent
+   */
   setFrequency(frequency: number): void {
     this.frequency = Math.max(0, Math.min(80, frequency));
     const now = performance.now() / 1000;
@@ -141,16 +147,23 @@ export class Lightning implements SceneEffect {
     }
   }
 
+  /** Returns the current frequency setting (0–80). */
   getFrequency(): number {
     return this.frequency;
   }
 
+  /** Returns the main flash point light, useful for external shadow or effect hooking. */
   getFlash(): THREE.PointLight {
     return this.flashLight;
   }
 
   // ── SceneEffect interface ───────────────────────────────────────────────
 
+  /**
+   * Drive all active strikes through their phase lifecycle and update lights.
+   * @param deltaTime - Seconds since the last frame
+   * @param elapsedTime - Total seconds since the animation started
+   */
   update(deltaTime: number, elapsedTime: number): void {
     if (!this.enabled) {
       this.clearAllStrikes();
@@ -176,10 +189,12 @@ export class Lightning implements SceneEffect {
     this.updateShake(deltaTime);
   }
 
+  /** Returns the root group containing all lightning geometry and lights. */
   getObject(): THREE.Object3D {
     return this.group;
   }
 
+  /** Dispose all active strikes and GPU-allocated lights. */
   dispose(): void {
     this.clearAllStrikes();
     this.flashLight.dispose();

@@ -69,13 +69,19 @@ export class Mist implements SceneEffect {
   }
 
   /**
-   * Set mist intensity (tied to rain intensity)
+   * Set mist intensity (tied to rain intensity).
+   * @param intensity - Value in range [0, 100]
    */
   setIntensity(intensity: number): void {
     this.intensity = Math.max(0, Math.min(100, intensity));
     this.material.opacity = this.calculateOpacity();
   }
 
+  /**
+   * Update mist particle positions each frame.
+   * @param deltaTime - Seconds since the last frame
+   * @param elapsedTime - Total seconds since the animation started
+   */
   update(deltaTime: number, elapsedTime: number): void {
     const positions = this.geometry.attributes.position.array as Float32Array;
     const depths = this.geometry.userData.depths;
@@ -95,10 +101,12 @@ export class Mist implements SceneEffect {
     this.mist.rotation.y = elapsedTime * 0.02;
   }
 
+  /** Returns the Three.js Points object for this effect. */
   getObject(): THREE.Object3D {
     return this.mist;
   }
 
+  /** Dispose all GPU resources held by the mist effect. */
   dispose(): void {
     this.geometry.dispose();
     this.material.dispose();

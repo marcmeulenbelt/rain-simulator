@@ -59,6 +59,11 @@ export class Clouds implements SceneEffect {
     }
   }
 
+  /**
+   * Update cloud mesh positions and rotations each frame.
+   * @param deltaTime - Seconds since the last frame
+   * @param elapsedTime - Total seconds since the animation started
+   */
   update(deltaTime: number, elapsedTime: number): void {
     const deltaFactor = deltaTime * 60; // Normalize to 60fps
 
@@ -74,10 +79,12 @@ export class Clouds implements SceneEffect {
     }
   }
 
+  /** Returns all cloud mesh objects to be added to the scene. */
   getObject(): THREE.Object3D[] {
     return this.clouds;
   }
 
+  /** Dispose all GPU resources held by the cloud effect. */
   dispose(): void {
     this.cloudGeometry.dispose();
     this.cloudMaterial.dispose();

@@ -250,6 +250,35 @@ canvas {
   opacity: 1;
 }
 
+/* Keyboard shortcut hint */
+.keyboard-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.keyboard-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+/* Reduced motion: suppress particle transitions for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  #ui,
+  #toggle-ui,
+  #fps {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 /* Responsive adjustments */
 @media (max-width: 400px) {
   #ui {

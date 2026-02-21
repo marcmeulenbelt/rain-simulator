@@ -1,5 +1,5 @@
 import { WeatherConfig, ConfigChangeEvent, ControlPanelOptions } from '../types';
-import { getLightningFrequencyLabel, PRESETS } from '../config/defaults';
+import { getLightningFrequencyLabel, PRESETS, validateConfigValue } from '../config/defaults';
 
 /**
  * Format wind speed value for display with km/h unit and direction arrow
@@ -24,6 +24,7 @@ export class ControlPanel {
   private toggleButton: HTMLElement | null = null;
   private fpsElement: HTMLElement | null = null;
   private documentClickHandler: ((e: MouseEvent) => void) | null = null;
+  private keyboardHandler: ((e: KeyboardEvent) => void) | null = null;
   
   // Cached DOM elements
   private intensitySlider: HTMLInputElement | null = null;
@@ -49,6 +50,8 @@ export class ControlPanel {
     // Create toggle button
     this.toggleButton = document.createElement('button');
     this.toggleButton.id = 'toggle-ui';
+    this.toggleButton.setAttribute('aria-label', 'Open weather controls');
+    this.toggleButton.setAttribute('aria-expanded', 'false');
     this.toggleButton.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>';
     this.toggleButton.style.opacity = '0.6';
     this.toggleButton.style.pointerEvents = 'auto';
@@ -57,6 +60,8 @@ export class ControlPanel {
     // Create panel
     this.panelElement = document.createElement('div');
     this.panelElement.id = 'ui';
+    this.panelElement.setAttribute('role', 'complementary');
+    this.panelElement.setAttribute('aria-label', 'Weather controls');
     this.panelElement.classList.add('hidden');
     this.panelElement.innerHTML = `
       <div class="panel-header">
@@ -64,22 +69,22 @@ export class ControlPanel {
           <svg class="gear" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
           Controls
         </div>
-        <button id="hide-ui" class="close-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button id="hide-ui" class="close-btn" aria-label="Close weather controls"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="slider-group">
-        <label>Intensity: <span id="intensityVal">${this.config.intensity}</span> mm/hr</label>
-        <input type="range" id="intensity" min="0" max="100" value="${this.config.intensity}" step="1">
+        <label for="intensity">Intensity: <span id="intensityVal">${this.config.intensity}</span> mm/hr</label>
+        <input type="range" id="intensity" min="0" max="100" value="${this.config.intensity}" step="1" aria-label="Rain intensity">
       </div>
 
       <div class="slider-group">
-        <label>Wind Speed: <span id="windSpeedVal">${formatWindSpeed(this.config.windSpeed)}</span></label>
-        <input type="range" id="windSpeed" min="-50" max="50" value="${this.config.windSpeed}" step="5">
+        <label for="windSpeed">Wind Speed: <span id="windSpeedVal">${formatWindSpeed(this.config.windSpeed)}</span></label>
+        <input type="range" id="windSpeed" min="-50" max="50" value="${this.config.windSpeed}" step="5" aria-label="Wind speed">
       </div>
 
       <div class="slider-group">
-        <label>Lightning Frequency: <span id="lightningFreqVal">${getLightningFrequencyLabel(this.config.lightningFrequency)}</span></label>
-        <input type="range" id="lightningFreq" min="0" max="80" value="${this.config.lightningFrequency}" step="1">
+        <label for="lightningFreq">Lightning Frequency: <span id="lightningFreqVal">${getLightningFrequencyLabel(this.config.lightningFrequency)}</span></label>
+        <input type="range" id="lightningFreq" min="0" max="80" value="${this.config.lightningFrequency}" step="1" aria-label="Lightning frequency">
       </div>
 
       <div class="checkbox-group">
@@ -92,14 +97,15 @@ export class ControlPanel {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg>
           Presets
         </h4>
-        <div class="preset-buttons">
+        <div class="preset-buttons" role="group" aria-label="Weather presets">
           ${PRESETS.map((preset, index) => `
-            <button class="preset-btn" data-preset="${index}" title="${preset.description || ''}">
+            <button class="preset-btn" data-preset="${index}" title="${preset.description || ''}" aria-label="Apply ${preset.name} preset">
               ${preset.name}
             </button>
           `).join('')}
         </div>
       </div>
+      <p class="keyboard-hint" aria-live="polite">Press <kbd>C</kbd> to open · <kbd>Esc</kbd> to close</p>
     `;
     this.container.appendChild(this.panelElement);
 
@@ -160,6 +166,19 @@ export class ControlPanel {
       }
     };
     document.addEventListener('click', this.documentClickHandler);
+    
+    // Keyboard shortcuts: C = open, Escape = close
+    this.keyboardHandler = (e: KeyboardEvent) => {
+      const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      if (e.key === 'Escape' && !this.panelElement?.classList.contains('hidden')) {
+        this.panelElement?.classList.add('hidden');
+        this.showToggleButton();
+      } else if ((e.key === 'c' || e.key === 'C') && !inInput && this.panelElement?.classList.contains('hidden')) {
+        this.panelElement?.classList.remove('hidden');
+        this.hideToggleButton();
+      }
+    };
+    document.addEventListener('keydown', this.keyboardHandler);
   }
   
   private attachSliderListeners(): void {
@@ -217,6 +236,7 @@ export class ControlPanel {
       setTimeout(() => {
         this.toggleButton!.style.opacity = '0.6';
         this.toggleButton!.style.pointerEvents = 'auto';
+        this.toggleButton!.setAttribute('aria-expanded', 'false');
       }, 100);
     }
   }
@@ -225,13 +245,16 @@ export class ControlPanel {
     if (this.toggleButton) {
       this.toggleButton.style.opacity = '0';
       this.toggleButton.style.pointerEvents = 'none';
+      this.toggleButton.setAttribute('aria-expanded', 'true');
     }
   }
 
   private emitChange(property: keyof WeatherConfig, value: number | boolean): void {
+    // Clamp numeric values to valid bounds before propagating
+    const validated = typeof value === 'number' ? validateConfigValue(property, value) : value;
     const previousValue = this.config[property];
-    this.config = { ...this.config, [property]: value };
-    this.onConfigChange({ property, value, previousValue });
+    this.config = { ...this.config, [property]: validated };
+    this.onConfigChange({ property, value: validated, previousValue });
   }
 
   private applyPreset(config: WeatherConfig): void {
@@ -266,12 +289,16 @@ export class ControlPanel {
   }
 
   /**
-   * Clean up event listeners
+   * Clean up event listeners and remove DOM elements.
    */
   dispose(): void {
     if (this.documentClickHandler) {
       document.removeEventListener('click', this.documentClickHandler);
       this.documentClickHandler = null;
+    }
+    if (this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
     }
     this.toggleButton?.remove();
     this.panelElement?.remove();

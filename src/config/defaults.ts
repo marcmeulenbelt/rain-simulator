@@ -1,6 +1,24 @@
 import { WeatherConfig, WeatherPreset, LightningFrequencyLabel } from '../types';
 
 /**
+ * Valid value ranges for each weather config property
+ */
+export const CONFIG_BOUNDS: Record<keyof WeatherConfig, { min: number; max: number }> = {
+  intensity:          { min: 0,   max: 100 },
+  lightningFrequency: { min: 0,   max: 80  },
+  windSpeed:          { min: -50, max: 50  },
+} as const;
+
+/**
+ * Clamp a config value to its valid range.
+ * Returns the clamped value; throws if the property is unknown.
+ */
+export function validateConfigValue(property: keyof WeatherConfig, value: number): number {
+  const bounds = CONFIG_BOUNDS[property];
+  return Math.max(bounds.min, Math.min(bounds.max, value));
+}
+
+/**
  * Default weather configuration
  */
 export const DEFAULT_CONFIG: WeatherConfig = {

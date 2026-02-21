@@ -7,10 +7,11 @@ import { Lightning } from './effects/Lightning';
 import { ControlPanel } from './ui/ControlPanel';
 import { DEFAULT_CONFIG } from './config/defaults';
 import { isWebGLSupported, showWebGLError } from './utils/webgl';
-import { ConfigChangeEvent, FpsState } from './types';
+import { WeatherConfig, FpsState } from './types';
 
 /**
- * Main application entry point
+ * Root application class that wires together the scene, effects, and UI.
+ * Manages the overall lifecycle: initialisation, config routing, and cleanup.
  */
 class RainSimulatorApp {
   private sceneManager: SceneManager | null = null;
@@ -27,6 +28,8 @@ class RainSimulatorApp {
   private showFps: boolean = false;
   private cursorHideTimeout: number | null = null;
   private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+  /** Maps each WeatherConfig property to the effect(s) that handle it */
+  private configHandlers: Map<keyof WeatherConfig, (value: number) => void> = new Map();
 
   constructor() {
     this.init();
@@ -71,6 +74,9 @@ class RainSimulatorApp {
       onFpsToggle: this.handleFpsToggle.bind(this),
     });
 
+    // Wire config properties to their effect handlers
+    this.initConfigHandlers();
+
     // Setup FPS tracking
     this.sceneManager.onAnimate(this.updateFps.bind(this));
 
@@ -81,21 +87,26 @@ class RainSimulatorApp {
     this.sceneManager.start();
   }
 
-  private handleConfigChange(event: ConfigChangeEvent): void {
-    switch (event.property) {
-      case 'intensity':
-        this.rain?.setIntensity(event.value as number);
-        this.mist?.setIntensity(event.value as number);
-        break;
-      case 'lightningFrequency':
-        const frequency = event.value as number;
-        this.lightning?.setFrequency(frequency);
-        this.lightning?.setEnabled(frequency > 0);
-        break;
-      case 'windSpeed':
-        this.rain?.setWindSpeed(event.value as number);
-        break;
-    }
+  private handleConfigChange(event: { property: keyof WeatherConfig; value: number | boolean }): void {
+    this.configHandlers.get(event.property)?.(event.value as number);
+  }
+
+  /**
+   * Register per-property handlers so adding a new WeatherConfig key only
+   * requires adding one entry here, not modifying a switch statement.
+   */
+  private initConfigHandlers(): void {
+    this.configHandlers.set('intensity', (value) => {
+      this.rain?.setIntensity(value);
+      this.mist?.setIntensity(value);
+    });
+    this.configHandlers.set('lightningFrequency', (value) => {
+      this.lightning?.setFrequency(value);
+      this.lightning?.setEnabled(value > 0);
+    });
+    this.configHandlers.set('windSpeed', (value) => {
+      this.rain?.setWindSpeed(value);
+    });
   }
 
   private handleFpsToggle(enabled: boolean): void {

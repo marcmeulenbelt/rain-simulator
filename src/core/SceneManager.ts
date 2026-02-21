@@ -15,6 +15,11 @@ export class SceneManager {
   private isRunning: boolean = false;
   private animationFrameId: number | null = null;
   private resizeTimeoutId: number | null = null;
+  /** Tracks the OS-level reduced-motion preference */
+  private prefersReducedMotion: boolean;
+  private reducedMotionQuery: MediaQueryList;
+  /** Throttle to ~5 fps when reduced motion is preferred */
+  private static readonly REDUCED_FPS_INTERVAL_MS = 200;
 
   constructor(container: HTMLElement) {
     // Create scene
@@ -49,6 +54,11 @@ export class SceneManager {
     // Setup lighting
     this.setupLighting();
 
+    // Respect prefers-reduced-motion OS setting
+    this.reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    this.prefersReducedMotion = this.reducedMotionQuery.matches;
+    this.reducedMotionQuery.addEventListener('change', this.handleReducedMotionChange);
+
     // Handle window resize
     window.addEventListener('resize', this.handleResize);
   }
@@ -73,6 +83,10 @@ export class SceneManager {
     );
     this.scene.add(directional);
   }
+
+  private handleReducedMotionChange = (e: MediaQueryListEvent): void => {
+    this.prefersReducedMotion = e.matches;
+  };
 
   private handleResize = (): void => {
     // Debounce resize events to avoid excessive recalculations
@@ -176,7 +190,13 @@ export class SceneManager {
     this.animationFrameId = requestAnimationFrame(this.animate);
 
     const now = performance.now();
-    const deltaTime = (now - this.lastFrameTime) / 1000;
+    
+    // Throttle to ~5fps when the user prefers reduced motion
+    if (this.prefersReducedMotion && now - this.lastFrameTime < SceneManager.REDUCED_FPS_INTERVAL_MS) {
+      return;
+    }
+
+    const deltaTime = Math.min((now - this.lastFrameTime) / 1000, 0.1);
     const elapsedTime = now / 1000;
     this.lastFrameTime = now;
 
@@ -204,6 +224,7 @@ export class SceneManager {
       this.resizeTimeoutId = null;
     }
     
+    this.reducedMotionQuery.removeEventListener('change', this.handleReducedMotionChange);
     window.removeEventListener('resize', this.handleResize);
 
     // Dispose all effects

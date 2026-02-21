@@ -126,6 +126,11 @@ export class Rain implements SceneEffect {
     this.rain = null;
   }
 
+  /**
+   * Update rain particle positions each frame.
+   * @param deltaTime - Seconds since the last frame
+   * @param elapsedTime - Total seconds since the animation started
+   */
   update(deltaTime: number, elapsedTime: number): void {
     if (!this.rain || !this.geometry || this.intensity === 0) return;
 
@@ -205,10 +210,12 @@ export class Rain implements SceneEffect {
     this.geometry.attributes.position.needsUpdate = true;
   }
 
+  /** Returns the container group holding all rain geometry. */
   getObject(): THREE.Object3D {
     return this.container;
   }
 
+  /** Dispose all GPU resources held by the rain effect. */
   dispose(): void {
     this.disposeRain();
   }
