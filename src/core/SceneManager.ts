@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SCENE, LIGHTING } from '../config/defaults';
+import { SCENE, LIGHTING, PERFORMANCE } from '../config/defaults';
 import { SceneEffect, AnimateCallback } from '../types';
 
 /**
@@ -14,6 +14,7 @@ export class SceneManager {
   private lastFrameTime: number = performance.now();
   private isRunning: boolean = false;
   private animationFrameId: number | null = null;
+  private resizeTimeoutId: number | null = null;
 
   constructor(container: HTMLElement) {
     // Create scene
@@ -74,9 +75,17 @@ export class SceneManager {
   }
 
   private handleResize = (): void => {
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    // Debounce resize events to avoid excessive recalculations
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+    }
+    
+    this.resizeTimeoutId = window.setTimeout(() => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.resizeTimeoutId = null;
+    }, PERFORMANCE.RESIZE_DEBOUNCE_MS);
   };
 
   /**
@@ -189,6 +198,12 @@ export class SceneManager {
    */
   dispose(): void {
     this.stop();
+    
+    if (this.resizeTimeoutId !== null) {
+      clearTimeout(this.resizeTimeoutId);
+      this.resizeTimeoutId = null;
+    }
+    
     window.removeEventListener('resize', this.handleResize);
 
     // Dispose all effects

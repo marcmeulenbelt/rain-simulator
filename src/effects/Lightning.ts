@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SceneEffect } from '../types';
+import { LIGHTNING } from '../config/defaults';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -280,7 +281,7 @@ export class Lightning implements SceneEffect {
         start: mainPoints[i],
         end: mainPoints[i + 1],
         brightness: 1.0,
-        width: 2.5,
+        width: LIGHTNING.MAIN_BOLT_WIDTH,
       });
     }
 
@@ -291,25 +292,25 @@ export class Lightning implements SceneEffect {
       const anchorIdx = Math.floor(randomRange(1, mainPoints.length * 0.7));
       const anchor = mainPoints[anchorIdx].clone();
 
-      const branchSteps = Math.floor(randomRange(3, 8));
+      const branchSteps = Math.floor(randomRange(LIGHTNING.BRANCH_STEP_RANGE.min, LIGHTNING.BRANCH_STEP_RANGE.max));
       const branchDir = Math.random() < 0.5 ? -1 : 1;
       let bx = anchor.x;
       let by = anchor.y;
       let bz = anchor.z;
 
-      const branchBrightness = randomRange(0.3, 0.7);
+      const branchBrightness = randomRange(LIGHTNING.BRANCH_BRIGHTNESS_RANGE.min, LIGHTNING.BRANCH_BRIGHTNESS_RANGE.max);
 
       let prev = anchor.clone();
       for (let s = 0; s < branchSteps; s++) {
-        bx += branchDir * randomRange(10, 40);
-        by -= randomRange(15, 45);
-        bz += randomRange(-15, 15);
+        bx += branchDir * randomRange(LIGHTNING.BRANCH_DIR_RANGE.min, LIGHTNING.BRANCH_DIR_RANGE.max);
+        by -= randomRange(LIGHTNING.BRANCH_DROP_RANGE.min, LIGHTNING.BRANCH_DROP_RANGE.max);
+        bz += randomRange(LIGHTNING.BRANCH_DRIFT_RANGE.min, LIGHTNING.BRANCH_DRIFT_RANGE.max);
         const next = new THREE.Vector3(bx, by, bz);
         segments.push({
           start: prev.clone(),
           end: next.clone(),
           brightness: branchBrightness * (1 - s / branchSteps),
-          width: 1.5 * (1 - s / branchSteps * 0.6),
+          width: LIGHTNING.BRANCH_WIDTH * (1 - s / branchSteps * 0.6),
         });
         prev = next;
       }
@@ -458,60 +459,74 @@ export class Lightning implements SceneEffect {
       this.updateBoltVisuals(s);
     }
 
+    // Apply lighting effects
+    this.applyLightingEffects(totalFlash, totalCloud, totalAmbient, dt);
+    this.updateLightPositions(flashX, flashZ, cloudX, cloudZ, weightSum);
+  }
+  
+  private applyLightingEffects(totalFlash: number, totalCloud: number, totalAmbient: number, dt: number): void {
     // Apply accumulated lighting — extreme multipliers for intense flashes
-    let flashIntensity = totalFlash * 6000;
-    let cloudIntensity = totalCloud * 3500;
+    let flashIntensity = totalFlash * LIGHTNING.FLASH_CONTRIBUTION;
+    let cloudIntensity = totalCloud * LIGHTNING.CLOUD_CONTRIBUTION;
 
-    // ── Original-style per-frame multi-stage flicker / spike ──────────
-    // This recreates the chaotic strobing from the original implementation:
-    // bright flashes randomly surge in intensity each frame, giving the
-    // characteristic "pulsing strobe" feel of real lightning.
-    if (flashIntensity > 0) {
-      const normalized = flashIntensity / 4000; // rough 0-1
+    // Original-style per-frame multi-stage flicker / spike
+    flashIntensity = this.applyFlashFlicker(flashIntensity, dt);
+    cloudIntensity = this.applyCloudFlicker(cloudIntensity, dt);
 
-      if (normalized > 0.3) {
-        // Bright phase: frequent strong spikes (12% per frame)
-        if (Math.random() < 0.12) {
-          flashIntensity *= 1.3 + Math.random() * 0.4; // 1.3x–1.7x surge
-        }
-      } else if (normalized > 0.1) {
-        // Mid phase: occasional moderate spikes (6% per frame)
-        if (Math.random() < 0.06) {
-          flashIntensity *= 1.15 + Math.random() * 0.2; // 1.15x–1.35x
-        }
-      } else {
-        // Late phase: rare subtle spikes (3% per frame)
-        if (Math.random() < 0.03) {
-          flashIntensity *= 1.1 + Math.random() * 0.1; // 1.1x–1.2x
-        }
-      }
-
-      // Apply exponential decay on the raw value (matches original's 0.86^(dt*60))
-      flashIntensity *= Math.pow(0.88, dt * 60);
-    }
-
-    // Cloud point light gets a softer version of the flicker (reduced role)
-    if (cloudIntensity > 0) {
-      if (Math.random() < 0.08) {
-        cloudIntensity *= 1.1 + Math.random() * 0.3;
-      }
-      cloudIntensity *= Math.pow(0.92, dt * 60);
-    }
-
-    this.flashLight.intensity = Math.min(flashIntensity, 15000);
-    this.cloudLight.intensity = Math.min(cloudIntensity, 6000);
+    this.flashLight.intensity = Math.min(flashIntensity, LIGHTNING.FLASH_MAX_INTENSITY);
+    this.cloudLight.intensity = Math.min(cloudIntensity, LIGHTNING.CLOUD_MAX_INTENSITY);
 
     // Uniform lighting: pushed to much higher levels for true dazzling effect
-    const ambientLevel = Math.min(totalAmbient * 3.5, 3.0);
+    const ambientLevel = Math.min(totalAmbient * LIGHTNING.AMBIENT_MULTIPLIER, LIGHTNING.MAX_AMBIENT_BOOST);
     this.ambientBoost.intensity = ambientLevel;
-    this.hemiBoost.intensity = ambientLevel * 0.9;
+    this.hemiBoost.intensity = ambientLevel * LIGHTNING.HEMI_BOOST_FACTOR;
+  }
+  
+  private applyFlashFlicker(flashIntensity: number, dt: number): number {
+    if (flashIntensity <= 0) return flashIntensity;
+    
+    const normalized = flashIntensity / 4000; // rough 0-1
 
+    if (normalized > LIGHTNING.FLASH_BRIGHT_THRESHOLD) {
+      // Bright phase: frequent strong spikes
+      if (Math.random() < LIGHTNING.BRIGHT_FLICKER_CHANCE) {
+        flashIntensity *= LIGHTNING.BRIGHT_FLICKER_RANGE.min + Math.random() * LIGHTNING.BRIGHT_FLICKER_RANGE.max;
+      }
+    } else if (normalized > LIGHTNING.FLASH_MID_THRESHOLD) {
+      // Mid phase: occasional moderate spikes
+      if (Math.random() < LIGHTNING.MID_FLICKER_CHANCE) {
+        flashIntensity *= LIGHTNING.MID_FLICKER_RANGE.min + Math.random() * LIGHTNING.MID_FLICKER_RANGE.max;
+      }
+    } else {
+      // Late phase: rare subtle spikes
+      if (Math.random() < LIGHTNING.LATE_FLICKER_CHANCE) {
+        flashIntensity *= LIGHTNING.LATE_FLICKER_RANGE.min + Math.random() * LIGHTNING.LATE_FLICKER_RANGE.max;
+      }
+    }
+
+    // Apply exponential decay
+    flashIntensity *= Math.pow(LIGHTNING.FLASH_DECAY_RATE, dt * 60);
+    return flashIntensity;
+  }
+  
+  private applyCloudFlicker(cloudIntensity: number, dt: number): number {
+    if (cloudIntensity <= 0) return cloudIntensity;
+    
+    // Cloud point light gets a softer version of the flicker
+    if (Math.random() < LIGHTNING.CLOUD_FLICKER_CHANCE) {
+      cloudIntensity *= LIGHTNING.CLOUD_FLICKER_RANGE.min + Math.random() * LIGHTNING.CLOUD_FLICKER_RANGE.max;
+    }
+    cloudIntensity *= Math.pow(LIGHTNING.CLOUD_DECAY_RATE, dt * 60);
+    return cloudIntensity;
+  }
+  
+  private updateLightPositions(flashX: number, flashZ: number, cloudX: number, cloudZ: number, weightSum: number): void {
     if (weightSum > 0) {
       this.flashLight.position.set(flashX / weightSum, 450, flashZ / weightSum);
       this.cloudLight.position.set(
-        cloudX / weightSum + randomRange(-30, 30),
-        620 + randomRange(-20, 20),
-        cloudZ / weightSum + randomRange(-30, 30)
+        cloudX / weightSum + randomRange(-LIGHTNING.POSITION_JITTER.x, LIGHTNING.POSITION_JITTER.x),
+        620 + randomRange(-LIGHTNING.POSITION_JITTER.y, LIGHTNING.POSITION_JITTER.y),
+        cloudZ / weightSum + randomRange(-LIGHTNING.POSITION_JITTER.z, LIGHTNING.POSITION_JITTER.z)
       );
     }
   }
@@ -525,7 +540,7 @@ export class Lightning implements SceneEffect {
         s.phaseDuration = randomRange(0.06, 0.18);
         // Trigger screen shake for close CG bolts
         if (s.type === StrikeType.CloudToGround && s.distance < 0.4) {
-          this.shakeIntensity = (1 - s.distance) * s.peakIntensity * 3.5;
+          this.shakeIntensity = (1 - s.distance) * s.peakIntensity * LIGHTNING.SHAKE_FACTOR;
           this.shakeDecay = randomRange(1.5, 3.0);
         }
         break;
@@ -612,8 +627,8 @@ export class Lightning implements SceneEffect {
     const arr = posAttr.array as Float32Array;
 
     for (let i = 0; i < arr.length; i += 3) {
-      arr[i]     += randomRange(-4, 4);  // x
-      arr[i + 2] += randomRange(-3, 3);  // z
+      arr[i]     += randomRange(-LIGHTNING.SEGMENT_JITTER.x, LIGHTNING.SEGMENT_JITTER.x);  // x
+      arr[i + 2] += randomRange(-LIGHTNING.SEGMENT_JITTER.z, LIGHTNING.SEGMENT_JITTER.z);  // z
     }
     posAttr.needsUpdate = true;
   }
@@ -634,7 +649,7 @@ export class Lightning implements SceneEffect {
       0
     );
 
-    this.shakeIntensity *= Math.pow(0.3, dt * this.shakeDecay);
+    this.shakeIntensity *= Math.pow(LIGHTNING.SHAKE_DECAY_RATE, dt * this.shakeDecay);
   }
 
   // ── Cleanup helpers ─────────────────────────────────────────────────────

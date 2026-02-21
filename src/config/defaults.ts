@@ -159,6 +159,60 @@ export const LIGHTNING = {
   STORM_BURST_MIN_FREQ: 35,
   /** Screen-shake intensity factor */
   SHAKE_FACTOR: 3.5,
+  /** Intensity decay per frame for flash light */
+  FLASH_DECAY_RATE: 0.88,
+  /** Intensity decay per frame for cloud light */
+  CLOUD_DECAY_RATE: 0.92,
+  /** Shake decay multiplier */
+  SHAKE_DECAY_RATE: 0.3,
+  /** Maximum ambient boost intensity */
+  MAX_AMBIENT_BOOST: 3.0,
+  /** Ambient boost multiplier */
+  AMBIENT_MULTIPLIER: 3.5,
+  /** Hemisphere boost factor */
+  HEMI_BOOST_FACTOR: 0.9,
+  /** Flash light contribution multiplier */
+  FLASH_CONTRIBUTION: 6000,
+  /** Cloud light contribution multiplier */
+  CLOUD_CONTRIBUTION: 3500,
+  /** Flash intensity threshold for bright phase flicker */
+  FLASH_BRIGHT_THRESHOLD: 0.3,
+  /** Flash intensity threshold for mid phase flicker */
+  FLASH_MID_THRESHOLD: 0.1,
+  /** Bright phase flicker probability */
+  BRIGHT_FLICKER_CHANCE: 0.12,
+  /** Bright phase flicker range */
+  BRIGHT_FLICKER_RANGE: { min: 1.3, max: 0.4 },
+  /** Mid phase flicker probability */
+  MID_FLICKER_CHANCE: 0.06,
+  /** Mid phase flicker range */
+  MID_FLICKER_RANGE: { min: 1.15, max: 0.2 },
+  /** Late phase flicker probability */
+  LATE_FLICKER_CHANCE: 0.03,
+  /** Late phase flicker range */
+  LATE_FLICKER_RANGE: { min: 1.1, max: 0.1 },
+  /** Cloud light flicker probability */
+  CLOUD_FLICKER_CHANCE: 0.08,
+  /** Cloud light flicker range */
+  CLOUD_FLICKER_RANGE: { min: 1.1, max: 0.3 },
+  /** Lightning position jitter range */
+  POSITION_JITTER: { x: 30, y: 20, z: 30 },
+  /** Branch direction multiplier */
+  BRANCH_DIR_RANGE: { min: 10, max: 40 },
+  /** Branch vertical drop range */
+  BRANCH_DROP_RANGE: { min: 15, max: 45 },
+  /** Branch lateral drift range */
+  BRANCH_DRIFT_RANGE: { min: -15, max: 15 },
+  /** Branch steps range */
+  BRANCH_STEP_RANGE: { min: 3, max: 8 },
+  /** Branch brightness range */
+  BRANCH_BRIGHTNESS_RANGE: { min: 0.3, max: 0.7 },
+  /** Branch width base */
+  BRANCH_WIDTH: 1.5,
+  /** Main bolt width */
+  MAIN_BOLT_WIDTH: 2.5,
+  /** Bolt segment jitter range */
+  SEGMENT_JITTER: { x: 4, y: 0, z: 3 },
 } as const;
 
 /**
@@ -184,3 +238,13 @@ export function calculateLightningInterval(frequency: number): { min: number; ma
     max: avg * (1 + LIGHTNING.INTERVAL_VARIATION),
   };
 }
+
+/**
+ * Performance configuration
+ */
+export const PERFORMANCE = {
+  /** Resize debounce delay in milliseconds */
+  RESIZE_DEBOUNCE_MS: 150,
+  /** Frame normalization factor (target 60fps) */
+  FRAME_NORMALIZATION: 60,
+} as const;

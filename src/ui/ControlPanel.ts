@@ -24,6 +24,16 @@ export class ControlPanel {
   private toggleButton: HTMLElement | null = null;
   private fpsElement: HTMLElement | null = null;
   private documentClickHandler: ((e: MouseEvent) => void) | null = null;
+  
+  // Cached DOM elements
+  private intensitySlider: HTMLInputElement | null = null;
+  private intensityValue: HTMLElement | null = null;
+  private lightningSlider: HTMLInputElement | null = null;
+  private lightningValue: HTMLElement | null = null;
+  private windSlider: HTMLInputElement | null = null;
+  private windValue: HTMLElement | null = null;
+  private fpsToggle: HTMLInputElement | null = null;
+  private fpsDisplay: HTMLElement | null = null;
 
   constructor(options: ControlPanelOptions) {
     this.container = options.container;
@@ -98,29 +108,46 @@ export class ControlPanel {
     this.fpsElement.id = 'fps';
     this.fpsElement.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg><span>-- fps</span>';
     this.container.appendChild(this.fpsElement);
+    
+    // Cache DOM element references
+    this.cacheElements();
+  }
+  
+  private cacheElements(): void {
+    if (!this.panelElement) return;
+    
+    this.intensitySlider = this.panelElement.querySelector('#intensity');
+    this.intensityValue = this.panelElement.querySelector('#intensityVal');
+    this.lightningSlider = this.panelElement.querySelector('#lightningFreq');
+    this.lightningValue = this.panelElement.querySelector('#lightningFreqVal');
+    this.windSlider = this.panelElement.querySelector('#windSpeed');
+    this.windValue = this.panelElement.querySelector('#windSpeedVal');
+    this.fpsToggle = this.panelElement.querySelector('#fpsToggle');
+    this.fpsDisplay = this.fpsElement?.querySelector('span') || null;
   }
 
   private attachEventListeners(): void {
     if (!this.panelElement || !this.toggleButton) return;
 
+    this.attachPanelToggleListeners();
+    this.attachSliderListeners();
+    this.attachFpsToggleListener();
+    this.attachPresetListeners();
+  }
+  
+  private attachPanelToggleListeners(): void {
+    if (!this.panelElement || !this.toggleButton) return;
+    
     // Toggle panel visibility
     const hideBtn = this.panelElement.querySelector('#hide-ui');
     hideBtn?.addEventListener('click', () => {
       this.panelElement?.classList.add('hidden');
-      if (this.toggleButton) {
-        setTimeout(() => {
-          this.toggleButton!.style.opacity = '0.6';
-          this.toggleButton!.style.pointerEvents = 'auto';
-        }, 100);
-      }
+      this.showToggleButton();
     });
 
     this.toggleButton.addEventListener('click', () => {
       this.panelElement?.classList.remove('hidden');
-      if (this.toggleButton) {
-        this.toggleButton.style.opacity = '0';
-        this.toggleButton.style.pointerEvents = 'none';
-      }
+      this.hideToggleButton();
     });
 
     // Close panel when clicking outside
@@ -129,51 +156,49 @@ export class ControlPanel {
           !this.panelElement?.contains(e.target as Node) &&
           !this.toggleButton?.contains(e.target as Node)) {
         this.panelElement?.classList.add('hidden');
-        if (this.toggleButton) {
-          setTimeout(() => {
-            this.toggleButton!.style.opacity = '0.6';
-            this.toggleButton!.style.pointerEvents = 'auto';
-          }, 100);
-        }
+        this.showToggleButton();
       }
     };
     document.addEventListener('click', this.documentClickHandler);
-
+  }
+  
+  private attachSliderListeners(): void {
     // Intensity slider
-    const intensitySlider = this.panelElement.querySelector('#intensity') as HTMLInputElement;
-    const intensityVal = this.panelElement.querySelector('#intensityVal');
-    intensitySlider?.addEventListener('input', () => {
-      const value = parseInt(intensitySlider.value);
-      if (intensityVal) intensityVal.textContent = value.toString();
+    this.intensitySlider?.addEventListener('input', () => {
+      if (!this.intensitySlider) return;
+      const value = parseInt(this.intensitySlider.value);
+      if (this.intensityValue) this.intensityValue.textContent = value.toString();
       this.emitChange('intensity', value);
     });
 
     // Lightning frequency slider
-    const freqSlider = this.panelElement.querySelector('#lightningFreq') as HTMLInputElement;
-    const freqVal = this.panelElement.querySelector('#lightningFreqVal');
-    freqSlider?.addEventListener('input', () => {
-      const value = parseInt(freqSlider.value);
-      if (freqVal) freqVal.textContent = getLightningFrequencyLabel(value);
+    this.lightningSlider?.addEventListener('input', () => {
+      if (!this.lightningSlider) return;
+      const value = parseInt(this.lightningSlider.value);
+      if (this.lightningValue) this.lightningValue.textContent = getLightningFrequencyLabel(value);
       this.emitChange('lightningFrequency', value);
     });
-
+    
     // Wind speed slider
-    const windSlider = this.panelElement.querySelector('#windSpeed') as HTMLInputElement;
-    const windVal = this.panelElement.querySelector('#windSpeedVal');
-    windSlider?.addEventListener('input', () => {
-      const value = parseInt(windSlider.value);
-      if (windVal) windVal.textContent = formatWindSpeed(value);
+    this.windSlider?.addEventListener('input', () => {
+      if (!this.windSlider) return;
+      const value = parseInt(this.windSlider.value);
+      if (this.windValue) this.windValue.textContent = formatWindSpeed(value);
       this.emitChange('windSpeed', value);
     });
-
-    // FPS toggle
-    const fpsToggle = this.panelElement.querySelector('#fpsToggle') as HTMLInputElement;
-    fpsToggle?.addEventListener('change', () => {
-      this.onFpsToggle(fpsToggle.checked);
-      this.fpsElement?.classList.toggle('visible', fpsToggle.checked);
+  }
+  
+  private attachFpsToggleListener(): void {
+    this.fpsToggle?.addEventListener('change', () => {
+      if (!this.fpsToggle) return;
+      this.onFpsToggle(this.fpsToggle.checked);
+      this.fpsElement?.classList.toggle('visible', this.fpsToggle.checked);
     });
-
-    // Preset buttons
+  }
+  
+  private attachPresetListeners(): void {
+    if (!this.panelElement) return;
+    
     const presetButtons = this.panelElement.querySelectorAll('.preset-btn');
     presetButtons.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -186,6 +211,22 @@ export class ControlPanel {
       });
     });
   }
+  
+  private showToggleButton(): void {
+    if (this.toggleButton) {
+      setTimeout(() => {
+        this.toggleButton!.style.opacity = '0.6';
+        this.toggleButton!.style.pointerEvents = 'auto';
+      }, 100);
+    }
+  }
+  
+  private hideToggleButton(): void {
+    if (this.toggleButton) {
+      this.toggleButton.style.opacity = '0';
+      this.toggleButton.style.pointerEvents = 'none';
+    }
+  }
 
   private emitChange(property: keyof WeatherConfig, value: number | boolean): void {
     const previousValue = this.config[property];
@@ -194,20 +235,13 @@ export class ControlPanel {
   }
 
   private applyPreset(config: WeatherConfig): void {
-    // Update sliders
-    const intensitySlider = this.panelElement?.querySelector('#intensity') as HTMLInputElement;
-    const intensityVal = this.panelElement?.querySelector('#intensityVal');
-    const freqSlider = this.panelElement?.querySelector('#lightningFreq') as HTMLInputElement;
-    const freqVal = this.panelElement?.querySelector('#lightningFreqVal');
-    const windSlider = this.panelElement?.querySelector('#windSpeed') as HTMLInputElement;
-    const windVal = this.panelElement?.querySelector('#windSpeedVal');
-
-    if (intensitySlider) intensitySlider.value = config.intensity.toString();
-    if (intensityVal) intensityVal.textContent = config.intensity.toString();
-    if (freqSlider) freqSlider.value = config.lightningFrequency.toString();
-    if (freqVal) freqVal.textContent = getLightningFrequencyLabel(config.lightningFrequency);
-    if (windSlider) windSlider.value = config.windSpeed.toString();
-    if (windVal) windVal.textContent = formatWindSpeed(config.windSpeed);
+    // Update sliders using cached elements
+    if (this.intensitySlider) this.intensitySlider.value = config.intensity.toString();
+    if (this.intensityValue) this.intensityValue.textContent = config.intensity.toString();
+    if (this.lightningSlider) this.lightningSlider.value = config.lightningFrequency.toString();
+    if (this.lightningValue) this.lightningValue.textContent = getLightningFrequencyLabel(config.lightningFrequency);
+    if (this.windSlider) this.windSlider.value = config.windSpeed.toString();
+    if (this.windValue) this.windValue.textContent = formatWindSpeed(config.windSpeed);
 
     // Emit changes
     this.emitChange('intensity', config.intensity);
@@ -219,11 +253,8 @@ export class ControlPanel {
    * Update the FPS display
    */
   updateFps(fps: number): void {
-    if (this.fpsElement) {
-      const span = this.fpsElement.querySelector('span');
-      if (span) {
-        span.textContent = `${fps} fps`;
-      }
+    if (this.fpsDisplay) {
+      this.fpsDisplay.textContent = `${fps} fps`;
     }
   }
 
