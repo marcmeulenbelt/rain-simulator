@@ -26,11 +26,12 @@ If the scene does not appear, WebGL is probably unavailable — try another brow
 
 ## Controls
 
-The gear in the top-right opens the panel. After a few seconds of stillness, the cursor steps aside so the weather can take the screen.
+The gear in the top-right opens the panel (`C` to open, `Esc` to close). After a few seconds of stillness, the cursor steps aside so the weather can take the screen.
 
 | Control | What it does |
 | --- | --- |
 | **Intensity** | Rainfall from 0–100 mm/hr |
+| **Wind speed** | Calm at 0, or −50 to 50 km/h (left / right). Rain streaks follow the wind. |
 | **Lightning frequency** | None, Rare, Occasional, Medium, Frequent, or Very Frequent |
 | **Show FPS counter** | Overlay in the bottom-right |
 | **Presets** | Light Drizzle, Steady Rain, Thunderstorm, Monsoon |
